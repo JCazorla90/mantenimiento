@@ -1,0 +1,45 @@
+---
+- name: Desplegar agentes Zabbix, Wazuh y StackStorm
+  hosts: all
+  become: true
+
+  tasks:
+  - name: Instalar paquetes necesarios
+    apt:
+      name: ['zabbix-agent', 'wazuh-agent', 'stackstorm-agent']
+      state: present
+      
+  - name: Configurar Zabbix agent
+    copy:
+      src: zabbix_agent.conf
+      dest: /etc/zabbix/zabbix_agentd.conf
+      owner: root
+      group: root
+      mode: 0644
+
+  - name: Configurar Wazuh agent
+    copy:
+      src: wazuh_agent.conf
+      dest: /var/ossec/etc/ossec.conf
+      owner: root
+      group: root
+      mode: 0644
+
+  - name: Configurar StackStorm agent
+    copy:
+      src: stackstorm_agent.conf
+      dest: /etc/stackstorm/st2.conf
+      owner: root
+      group: root
+      mode: 0644
+
+  - name: Iniciar servicios Zabbix, Wazuh y StackStorm
+    service:
+      name: ['zabbix-agent', 'wazuh-agent', 'stackstorm-agent']
+      state: started
+      enabled: true
+      
+  - name: Conectar a Grafana
+    shell: grafana-cli plugins install grafana-zabbix-app && grafana-cli plugins install grafana-wazuh-app
+    args:
+      executable: /bin/bash
