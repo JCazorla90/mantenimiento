@@ -1,0 +1,17 @@
+- name: Check file immutability
+  shell: |
+    old_hashes=$(cat /path/to/hashes.txt 2>/dev/null) || true
+    if [[ ! -z "$old_hashes" ]]; then
+      new_hashes=$(find /path/to/server/files -type f -print0 | xargs -0 sha256sum)
+      if [[ "$old_hashes" != "$new_hashes" ]]; then
+        echo "Changes detected"
+        echo "$new_hashes" > /path/to/hashes.txt
+        echo "$new_hashes" | mail -s "Changes detected in server files" user@example.com
+      else
+        echo "No changes detected"
+      fi
+    else
+      new_hashes=$(find /path/to/server/files -type f -print0 | xargs -0 sha256sum)
+      echo "$new_hashes" > /path/to/hashes.txt
+      echo "No previous hashes found. Hashes generated for the first time."
+    fi
