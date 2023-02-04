@@ -1,0 +1,78 @@
+---
+- name: Desplegar Zabbix, Wazuh y Grafana
+  hosts: all
+  become: yes
+
+  tasks:
+
+  # Instalar Zabbix
+  - name: Instalar paquetes necesarios para Zabbix
+    apt:
+      name: "{{ item }}"
+      update_cache: yes
+    with_items:
+      - zabbix-server-mysql
+      - zabbix-frontend-php
+      - zabbix-agent
+      - zabbix-java-gateway
+
+  - name: Configurar base de datos de Zabbix
+    mysql_db:
+      name: zabbix
+      state: present
+      login_user: root
+      login_password: "{{ mysql_root_password }}"
+
+  - name: Importar esquema de Zabbix
+    shell: zcat /usr/share/doc/zabbix-server-mysql/create.sql.gz | mysql -uzabbix -pzabbix zabbix
+
+  - name: Configurar Zabbix
+    template:
+      src: zabbix_server.conf.j2
+      dest: /etc/zabbix/zabbix_server.conf
+    vars:
+      db_password: zabbix
+
+  - name: Reiniciar Zabbix
+    service:
+      name: zabbix-server
+      state: restarted
+
+  # Instalar Wazuh
+  - name: Instalar paquetes necesarios para Wazuh
+    apt:
+      name: "{{ item }}"
+      update_cache: yes
+    with_items:
+      - wazuh-manager
+      - wazuh-agent
+
+  - name: Configurar Wazuh
+    template:
+      src: wazuh.conf.j2
+      dest: /var/ossec/etc/ossec.conf
+    vars:
+      manager_ip: "{{ inventory_hostname }}"
+
+  - name: Reiniciar Wazuh
+    service:
+      name: wazuh-manager
+      state: restarted
+
+  # Instalar Grafana
+  - name: Instalar paquetes necesarios para Grafana
+    apt:
+      name: "{{ item }}"
+      update_cache: yes
+    with_items:
+      - grafana
+
+  - name: Configurar Grafana
+    template:
+      src: grafana.ini.j2
+      dest: /etc/grafana/grafana.ini
+
+  - name: Reiniciar Grafana
+    service:
+      name: grafana-server
+      state: restarted
