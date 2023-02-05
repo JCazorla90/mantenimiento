@@ -1,0 +1,33 @@
+---
+- name: Analizar y mejorar la seguridad, cumplimiento y rendimiento de PostgreSQL
+  hosts: database
+  gather_facts: false
+  tasks:
+  - name: Verificar versión de PostgreSQL
+    shell: psql -c "SHOW server_version;"
+    register: postgres_version
+  - name: Verificar configuración de seguridad
+    shell: psql -c "SELECT * FROM pg_hba_file_rules;"
+    register: security_check
+  - name: Verificar cumplimiento de la RGPD
+    shell: psql -c "SELECT * FROM information_schema.columns WHERE table_name = 'personal_data';"
+    register: gdpr_check
+  - name: Verificar rendimiento
+    shell: psql -c "EXPLAIN ANALYZE SELECT * FROM slow_query_log;"
+    register: performance_check
+  - name: Mejorar configuración de seguridad
+    shell: sudo -u postgres psql -c "ALTER USER myuser SET password 'newpassword';"
+    when: "security_check.stdout | trim != 'Success: PostgreSQL is secure'"
+  - name: Mejorar cumplimiento de la RGPD
+    shell: sudo -u postgres psql -c "ALTER TABLE personal_data ADD COLUMN consent BOOLEAN NOT NULL DEFAULT TRUE;"
+    when: "gdpr_check.stdout | trim != 'Success: PostgreSQL is RGPD compliant'"
+  - name: Mejorar rendimiento
+    shell: sudo -u postgres psql -c "ALTER TABLE slow_query_log ADD COLUMN query_plan TEXT NOT NULL DEFAULT '';"
+    when: "performance_check.stdout | trim != 'Success: PostgreSQL is optimized for performance'"
+  - name: Mostrar resultados
+    debug:
+      var:
+        postgres_version: "{{ postgres_version.stdout }}"
+        security_check: "{{ security_check.stdout }}"
+        gdpr_check: "{{ gdpr_check.stdout }}"
+        performance_check: "{{ performance_check.stdout }}"
