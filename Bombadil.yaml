@@ -1,0 +1,42 @@
+- name: Verificar la configuración de seguridad de los clústeres de Kubernetes
+  hosts: k8s-cluster
+  gather_facts: false
+  tasks:
+  - name: Verificar la versión de Kubernetes
+    command: kubectl version --short | awk '/Server Version:/ {print $3}'
+    register: k8s_version
+  - name: Verificar que la versión de Kubernetes sea compatible
+    fail:
+      msg: "La versión de Kubernetes es {{ k8s_version.stdout }}, que no es compatible. Por favor, actualice a una versión compatible."
+    when: k8s_version.stdout < "1.19"
+  - name: Verificar que la autenticación está habilitada
+    command: kubectl describe configmap cluster-info -n kube-public | grep -q "authentication: true"
+    register: authentication_enabled
+    changed_when: false
+  - name: Verificar que la autorización está habilitada
+    command: kubectl describe configmap cluster-info -n kube-public | grep -q "authorization: true"
+    register: authorization_enabled
+    changed_when: false
+  - name: Verificar que la encriptación de los datos en tránsito está habilitada
+    command: kubectl describe configmap cluster-info -n kube-public | grep -q "transportEncryption: true"
+    register: transport_encryption_enabled
+    changed_when: false
+  - name: Verificar que la encriptación de los secretos está habilitada
+    command: kubectl get secrets --all-namespaces | grep -q "kubernetes.io/service-account-token"
+    register: secret_encryption_enabled
+    changed_when: false
+  - name: Verificar puertos expuestos
+    command: kubectl get services --all-namespaces | awk '$4 == "LoadBalancer" {print $0}'
+    register: exposed_ports
+  - name: Verificar que los puertos expuestos sean seguros
+    fail:
+      msg: "Hay puertos expuestos inseguros: {{ exposed_ports.stdout }}."
+    when: "exposed_ports.stdout != ''"
+  - name: Verificar la configuración de seguridad
+    fail:
+      msg: "La configuración de seguridad no cumple los requisitos. Verifique los resultados anteriores para obtener más información."
+    when:
+      - authentication_enabled.rc != 0
+      - authorization_enabled.rc != 0
+      - transport_encryption_enabled.rc != 0
+      - secret_encryption_enabled.rc != 0
