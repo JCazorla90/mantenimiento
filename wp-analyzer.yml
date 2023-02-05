@@ -1,0 +1,40 @@
+---
+- name: Analizar WordPress
+  hosts: webservers
+  gather_facts: false
+  tasks:
+  - name: Verificar versión de WordPress
+    shell: wp core version --allow-root
+    register: wp_version
+  - name: Verificar plugins y temas desactualizados
+    shell: wp plugin list --status=inactive --field=name --allow-root
+    register: inactive_plugins
+  - name: Verificar configuración de seguridad
+    shell: wp security-check --scan --status --format=json --allow-root
+    register: security_check
+    failed_when: "security_check.rc != 0 or security_check.stdout != '{\"status\":\"secure\"}'"
+  - name: Verificar cumplimiento de la GDPR
+    shell: wp gdpr check --format=json --allow-root
+    register: gdpr_check
+    failed_when: "gdpr_check.rc != 0 or gdpr_check.stdout | from_json.compliance != 'compliant'"
+  - name: Verificar rendimiento
+    shell: wp performance-check --format=json --allow-root
+    register: performance_check
+    failed_when: "performance_check.rc != 0 or performance_check.stdout | from_json.status != 'optimized'"
+  - name: Mejorar configuración de seguridad
+    shell: wp security-check --fix --allow-root
+    when: "security_check.stdout | from_json.status != 'secure'"
+  - name: Mejorar cumplimiento de la GDPR
+    shell: wp gdpr enhance --allow-root
+    when: "gdpr_check.stdout | from_json.compliance != 'compliant'"
+  - name: Mejorar rendimiento
+    shell: wp performance-check --fix --allow-root
+    when: "performance_check.stdout | from_json.status != 'optimized'"
+  - name: Mostrar resultados
+    debug:
+      var:
+        wp_version: "{{ wp_version.stdout }}"
+        inactive_plugins: "{{ inactive_plugins.stdout_lines }}"
+        security_check: "{{ security_check.stdout }}"
+        gdpr_check: "{{ gdpr_check.stdout }}"
+        performance_check: "{{ performance_check.stdout }}"
