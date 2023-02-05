@@ -1,0 +1,40 @@
+---
+- name: Analizar Liferay
+  hosts: webservers
+  gather_facts: false
+  tasks:
+  - name: Verificar versión de Liferay
+    shell: curl -s http://localhost:8080/api/secure/jsonws/platform/get-platform-details | jq '.build.number'
+    register: liferay_version
+  - name: Verificar plugins desactualizados
+    shell: curl -s http://localhost:8080/api/secure/jsonws/plugins/list-installed-plugins | jq '.[] | select(.active == true) | select(.status != "installed") | .name'
+    register: inactive_plugins
+  - name: Verificar configuración de seguridad
+    shell: curl -s http://localhost:8080/api/secure/jsonws/security-manager/get-security-manager-status | jq '.status'
+    register: security_check
+    failed_when: "security_check.rc != 0 or security_check.stdout | trim != 'success'"
+  - name: Verificar cumplimiento de la GDPR
+    shell: curl -s http://localhost:8080/api/secure/jsonws/gdpr/check-gdpr-compliance | jq '.compliance'
+    register: gdpr_check
+    failed_when: "gdpr_check.rc != 0 or gdpr_check.stdout | trim != 'compliant'"
+  - name: Verificar rendimiento
+    shell: curl -s http://localhost:8080/api/secure/jsonws/performance/check-performance-status | jq '.status'
+    register: performance_check
+    failed_when: "performance_check.rc != 0 or performance_check.stdout | trim != 'optimized'"
+  - name: Mejorar configuración de seguridad
+    shell: curl -s http://localhost:8080/api/secure/jsonws/security-manager/fix-security-manager-status
+    when: "security_check.stdout | trim != 'success'"
+  - name: Mejorar cumplimiento de la GDPR
+    shell: curl -s http://localhost:8080/api/secure/jsonws/gdpr/enhance-gdpr-compliance
+    when: "gdpr_check.stdout | trim != 'compliant'"
+  - name: Mejorar rendimiento
+    shell: curl -s http://localhost:8080/api/secure/jsonws/performance/enhance-performance-status
+    when: "performance_check.stdout | trim != 'optimized'"
+  - name: Mostrar resultados
+    debug:
+      var:
+        liferay_version: "{{ liferay_version.stdout }}"
+        inactive_plugins: "{{ inactive_plugins.stdout_lines }}"
+        security_check: "{{ security_check.stdout }}"
+        gdpr_check: "{{ gdpr_check.stdout }}"
+        performance_check: "{{ performance_check.stdout }}"
