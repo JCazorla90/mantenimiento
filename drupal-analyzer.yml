@@ -1,0 +1,27 @@
+---
+- name: Analizar Drupal
+  hosts: webservers
+  gather_facts: false
+  tasks:
+  - name: Verificar versión de Drupal
+    shell: curl -s http://localhost:8080/update.php | grep 'Drupal version' | cut -d ':' -f 2
+    register: drupal_version
+  - name: Verificar módulos desactualizados
+    shell: drush pm-updatestatus | grep 'Needs update' | awk '{print $2}'
+    register: inactive_modules
+  - name: Verificar configuración de seguridad
+    shell: drush security-review | grep 'The site has no known security vulnerabilities'
+    register: security_check
+    failed_when: "security_check.rc != 0 or security_check.stdout | trim != 'The site has no known security vulnerabilities.'"
+  - name: Verificar cumplimiento de la GDPR
+    shell: drush gdpr-check | grep 'The site is compliant with GDPR regulations'
+    register: gdpr_check
+    failed_when: "gdpr_check.rc != 0 or gdpr_check.stdout | trim != 'The site is compliant with GDPR regulations.'"
+  - name: Verificar rendimiento
+    shell: drush performance-check | grep 'The site performance is optimized'
+    register: performance_check
+    failed_when: "performance_check.rc != 0 or performance_check.stdout | trim != 'The site performance is optimized.'"
+  - name: Mejorar configuración de seguridad
+    shell: drush security-review --fix
+    when: "security_check.stdout | trim != 'The site has no known security vulnerabilities.'"
+  - name: Mejorar cumplimiento de la GDPR
