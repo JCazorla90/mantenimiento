@@ -1,5 +1,5 @@
 ---
-- name: Analizar y mejorar la seguridad, cumplimiento y rendimiento de PostgreSQL
+- name: Analizar PostgreSQL
   hosts: database
   gather_facts: false
   tasks:
