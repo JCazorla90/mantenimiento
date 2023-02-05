@@ -1,0 +1,33 @@
+---
+- name: Analizar MongoDB
+  hosts: database
+  gather_facts: false
+  tasks:
+  - name: Verificar versión de MongoDB
+    shell: mongo --version
+    register: mongodb_version
+  - name: Verificar configuración de seguridad
+    shell: mongo --eval "db.runCommand({connectionStatus : 1})" | grep security
+    register: security_check
+  - name: Verificar cumplimiento de la RGPD
+    shell: mongo --eval "db.getCollectionInfos({})[0].options.strict"
+    register: gdpr_check
+  - name: Verificar rendimiento
+    shell: mongo --eval "db.currentOp()"
+    register: performance_check
+  - name: Mejorar configuración de seguridad
+    shell: mongo admin --eval "db.createUser({user: 'myuser', pwd: 'newpassword', roles:[{role:'root',db:'admin'}]});"
+    when: "security_check.stdout | trim != 'Success: MongoDB is secure'"
+  - name: Mejorar cumplimiento de la RGPD
+    shell: mongo --eval "db.runCommand({collMod: 'personal_data', 'validator': {'$jsonSchema': {'bsonType': 'object', 'required': ['consent'], 'properties': {'consent': {'bsonType': 'bool'}}}}})"
+    when: "gdpr_check.stdout | trim != 'Success: MongoDB is RGPD compliant'"
+  - name: Mejorar rendimiento
+    shell: mongo --eval "db.adminCommand({setParameter: 1, profile: 2})"
+    when: "performance_check.stdout | trim != 'Success: MongoDB is optimized for performance'"
+  - name: Mostrar resultados
+    debug:
+      var:
+        mongodb_version: "{{ mongodb_version.stdout }}"
+        security_check: "{{ security_check.stdout }}"
+        gdpr_check: "{{ gdpr_check.stdout }}"
+        performance_check: "{{ performance_check.stdout }}"
