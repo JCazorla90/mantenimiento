@@ -4,24 +4,34 @@
   gather_facts: false
   tasks:
   - name: Verificar versión de Drupal
-    shell: curl -s http://localhost:8080/update.php | grep 'Drupal version' | cut -d ':' -f 2
+    shell: drush status | grep "Drupal version"
     register: drupal_version
-  - name: Verificar módulos desactualizados
-    shell: drush pm-updatestatus | grep 'Needs update' | awk '{print $2}'
-    register: inactive_modules
+  - name: Verificar plugins desactualizados
+    shell: drush pml --no-core --status=insecure | awk '{print $1}'
+    register: inactive_plugins
   - name: Verificar configuración de seguridad
-    shell: drush security-review | grep 'The site has no known security vulnerabilities'
+    shell: drush eval 'print_r(drupal_security_review());'
     register: security_check
-    failed_when: "security_check.rc != 0 or security_check.stdout | trim != 'The site has no known security vulnerabilities.'"
-  - name: Verificar cumplimiento de la GDPR
-    shell: drush gdpr-check | grep 'The site is compliant with GDPR regulations'
+  - name: Verificar cumplimiento de la RGPD
+    shell: drush eval 'print_r(drupal_gdpr_compliance());'
     register: gdpr_check
-    failed_when: "gdpr_check.rc != 0 or gdpr_check.stdout | trim != 'The site is compliant with GDPR regulations.'"
   - name: Verificar rendimiento
-    shell: drush performance-check | grep 'The site performance is optimized'
+    shell: drush eval 'print_r(drupal_performance_check());'
     register: performance_check
-    failed_when: "performance_check.rc != 0 or performance_check.stdout | trim != 'The site performance is optimized.'"
   - name: Mejorar configuración de seguridad
-    shell: drush security-review --fix
-    when: "security_check.stdout | trim != 'The site has no known security vulnerabilities.'"
-  - name: Mejorar cumplimiento de la GDPR
+    shell: drush eval 'drupal_security_review_fix();'
+    when: "security_check.stdout | trim != 'Success: Drupal is secure'"
+  - name: Mejorar cumplimiento de la RGPD
+    shell: drush eval 'drupal_gdpr_compliance_fix();'
+    when: "gdpr_check.stdout | trim != 'Success: Drupal is RGPD compliant'"
+  - name: Mejorar rendimiento
+    shell: drush eval 'drupal_performance_check_fix();'
+    when: "performance_check.stdout | trim != 'Success: Drupal is optimized for performance'"
+  - name: Mostrar resultados
+    debug:
+      var:
+        drupal_version: "{{ drupal_version.stdout }}"
+        inactive_plugins: "{{ inactive_plugins.stdout_lines }}"
+        security_check: "{{ security_check.stdout }}"
+        gdpr_check: "{{ gdpr_check.stdout }}"
+        performance_check: "{{ performance_check.stdout }}"
