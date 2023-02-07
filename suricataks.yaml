@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: suricata-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: suricata
+  template:
+    metadata:
+      labels:
+        app: suricata
+    spec:
+      containers:
+      - name: suricata
+        image: suricata/suricata:4.1.8
+        ports:
+        - containerPort: 9000
+        volumeMounts:
+        - name: suricata-rules
+          mountPath: /etc/suricata/rules
+      volumes:
+      - name: suricata-rules
+        configMap:
+          name: suricata-rules-configmap
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: suricata-rules-configmap
+data:
+  suricata.yaml: |-
+    # Suricata configuration file
+    default-log-dir: /var/log/suricata
+
+    # List of network interfaces to run Suricata on
+    interfaces:
+      - name: eth0
+
+    # Suricata rules
+    rules-file: /etc/suricata/rules/suricata.rules
+  suricata.rules: |-
+    # Suricata rules
+    # Add your custom rules here
+    alert http any any -> any any (msg:"HTTP traffic detected"; sid:100001;)
