@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: liferay-deployment
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: liferay
+  template:
+    metadata:
+      labels:
+        app: liferay
+    spec:
+      containers:
+      - name: liferay
+        image: liferay/liferay-portal:7.3.3-ga4
+        ports:
+        - containerPort: 8080
+        env:
+        - name: JAVA_OPTS
+          value: "-Xms512m -Xmx1024m -XX:MaxMetaspaceSize=512m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: liferay-service
+spec:
+  selector:
+    app: liferay
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+  type: LoadBalancer
