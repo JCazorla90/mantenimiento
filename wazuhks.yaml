@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: wazuh-manager
+spec:
+  serviceName: wazuh-manager-svc
+  replicas: 2
+  selector:
+    matchLabels:
+      app: wazuh
+  template:
+    metadata:
+      labels:
+        app: wazuh
+    spec:
+      containers:
+      - name: wazuh-manager
+        image: wazuh/wazuh:3.14.3
+        ports:
+        - containerPort: 1514
+        volumeMounts:
+        - name: wazuh-config
+          mountPath: /var/ossec/etc/
+        - name: wazuh-rules
+          mountPath: /var/ossec/etc/rules/
+        - name: wazuh-logs
+          mountPath: /var/ossec/logs/
+      volumes:
+      - name: wazuh-config
+        configMap:
+          name: wazuh-config-map
+      - name: wazuh-rules
+        configMap:
+          name: wazuh-rules-map
+      - name: wazuh-logs
+        persistentVolumeClaim:
+          claimName: wazuh-logs-pvc
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wazuh-config-map
+data:
+  ossec.conf: |-
+    # Wazuh configuration file
+    <ossec_config>
+      <global>
+        <email_notification>yes</email_notification>
+        <email_to>example@example.com</email_to>
+        <smtp_server>smtp.example.com</smtp_server>
+        <smtp_port>25</smtp_port>
+        <cluster>
+          <node_name>wazuh-manager-0</node_name>
+          <name>wazuh-cluster</name>
+        </cluster>
+      </global>
+  local_internal_options.conf: |-
+    # Wazuh internal options configuration file
+    <internal>
+      <options>
+        <cluster>
+          <name>wazuh-cluster</name>
+          <node_name>wazuh-manager-0</node_name>
+        </cluster>
+      </options>
+  rules: |-
+    # Wazuh rules
+    # Add your custom rules here
+    <group name="security,syslog,authentication_success,authentication_failure">
+      <rule>
+        <if_sid>1002</if_sid>
+        <match>Accepted publickey for root from</match>
+        <description>SSH login accepted</description>
+        <same_field name="srcip">yes</same_field>
+      </rule>
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wazuh-logs-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
